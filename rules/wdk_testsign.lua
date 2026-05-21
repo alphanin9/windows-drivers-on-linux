@@ -1,0 +1,75 @@
+option("wdk_testsign")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Embed an Authenticode test signature in the built .sys using osslsigncode")
+option_end()
+
+option("wdk_sign_cert")
+    set_default("")
+    set_showmenu(true)
+    set_description("Path to a PEM/CRT code-signing certificate for wdk.testsign")
+option_end()
+
+option("wdk_sign_key")
+    set_default("")
+    set_showmenu(true)
+    set_description("Path to a PEM private key for wdk.testsign")
+option_end()
+
+rule("wdk.testsign")
+    after_build(function (target)
+        import("core.project.config")
+        import("lib.detect.find_tool")
+
+        if not config.get("wdk_testsign") then
+            return
+        end
+
+        local osslsigncode = find_tool("osslsigncode")
+        assert(osslsigncode, "wdk_testsign=true requires osslsigncode in PATH")
+
+        local openssl = find_tool("openssl")
+        local cert = config.get("wdk_sign_cert")
+        local key = config.get("wdk_sign_key")
+
+        if cert == "" or key == "" then
+            assert(openssl, "generated test certificates require openssl in PATH")
+            local certdir = path.join(os.projectdir(), "certs")
+            os.mkdir(certdir)
+            cert = path.join(certdir, "test-driver.crt")
+            key = path.join(certdir, "test-driver.key")
+
+            if not os.isfile(cert) or not os.isfile(key) then
+                os.execv(openssl.program, {
+                    "req", "-x509",
+                    "-newkey", "rsa:2048",
+                    "-nodes",
+                    "-sha256",
+                    "-days", "3650",
+                    "-subj", "/CN=xmake WDK test driver/",
+                    "-addext", "extendedKeyUsage=codeSigning",
+                    "-keyout", key,
+                    "-out", cert
+                })
+            end
+        end
+
+        assert(os.isfile(cert), "wdk_sign_cert does not exist: " .. cert)
+        assert(os.isfile(key), "wdk_sign_key does not exist: " .. key)
+
+        local unsigned = target:targetfile()
+        local signed = path.join(path.directory(unsigned), path.basename(unsigned) .. "-signed.sys")
+
+        os.tryrm(signed)
+        os.execv(osslsigncode.program, {
+            "sign",
+            "-h", "sha256",
+            "-certs", cert,
+            "-key", key,
+            "-in", unsigned,
+            "-out", signed
+        })
+        os.mv(signed, unsigned)
+        os.execv(osslsigncode.program, {"verify", "-CAfile", cert, "-in", unsigned})
+    end)
+rule_end()

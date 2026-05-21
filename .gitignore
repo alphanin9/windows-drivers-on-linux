@@ -1,0 +1,19 @@
+# xmake build/cache output
+build/
+.xmake/
+
+# Generated test-signing material. Public certs are harmless, but keep generated
+# material out by default so private keys are never committed accidentally.
+certs/*.key
+certs/*.pem
+certs/*.pfx
+certs/*.p12
+certs/test-driver.crt
+
+# Built drivers and signing intermediates
+*.sys
+*-signed.sys
+
+# Editor/OS noise
+.DS_Store
+*.swp
