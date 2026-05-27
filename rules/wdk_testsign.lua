@@ -1,5 +1,5 @@
 option("wdk_testsign")
-    set_default(false)
+    set_default(true)
     set_showmenu(true)
     set_description("Embed an Authenticode test signature in the built .sys using osslsigncode")
 option_end()
@@ -41,34 +41,19 @@ rule("wdk.testsign")
 
             if not os.isfile(cert) or not os.isfile(key) then
                 os.execv(openssl.program, {
-                    "req", "-x509",
-                    "-newkey", "rsa:2048",
-                    "-nodes",
-                    "-sha256",
-                    "-days", "3650",
-                    "-subj", "/CN=xmake WDK test driver/",
-                    "-addext", "extendedKeyUsage=codeSigning",
-                    "-keyout", key,
-                    "-out", cert
+                    "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256", "-days", "3650",
+                    "-subj", "/CN=xmake WDK test driver/", "-addext", "extendedKeyUsage=codeSigning",
+                    "-keyout", key, "-out", cert
                 })
             end
         end
 
         assert(os.isfile(cert), "wdk_sign_cert does not exist: " .. cert)
         assert(os.isfile(key), "wdk_sign_key does not exist: " .. key)
-
         local unsigned = target:targetfile()
         local signed = path.join(path.directory(unsigned), path.basename(unsigned) .. "-signed.sys")
-
         os.tryrm(signed)
-        os.execv(osslsigncode.program, {
-            "sign",
-            "-h", "sha256",
-            "-certs", cert,
-            "-key", key,
-            "-in", unsigned,
-            "-out", signed
-        })
+        os.execv(osslsigncode.program, {"sign", "-h", "sha256", "-certs", cert, "-key", key, "-in", unsigned, "-out", signed})
         os.mv(signed, unsigned)
         os.execv(osslsigncode.program, {"verify", "-CAfile", cert, "-in", unsigned})
     end)
