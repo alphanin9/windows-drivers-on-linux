@@ -24,6 +24,7 @@ toolchain("wdk-clang-cl")
         toolchain:set("toolset", "sh", lld_link)
         toolchain:set("toolset", "ar", find_program("llvm-lib") or find_program("llvm-ar") or lld_link)
         toolchain:set("toolset", "mrc", find_program("llvm-rc") or "llvm-rc")
+	toolchain:set("toolset", "as", find_program("llvm-ml64"))
     end)
     on_check(function (toolchain)
         for _, name in ipairs({"clang-cl", "lld-link"}) do
@@ -47,11 +48,7 @@ set_version("0.1.0")
 set_languages("c17")
 set_plat("windows")
 set_arch("x64")
-if xmake.version():ge("3.0.9") then
-    set_toolchains("clang-cl[llvm]")
-else
-    set_toolchains("wdk-clang-cl")
-end
+set_toolchains("wdk-clang-cl")
 
 includes("rules/*.lua")
 
