@@ -16,6 +16,12 @@ option("wdk_sign_key")
     set_description("Path to a PEM private key for wdk.testsign")
 option_end()
 
+option("wdk_testsign_org_name")
+    set_default("xmake WDK test driver")
+    set_showmenu(true)
+    set_description("The name of the organization that will be in the test certificate")
+option_end()
+
 option("wdk_verbose_codesign")
     set_default(false)
     set_showmenu(true)
@@ -40,6 +46,7 @@ rule("wdk.testsign")
         local cert = config.get("wdk_sign_cert")
         local key = config.get("wdk_sign_key")
 	local verbose = config.get("wdk_verbose_codesign")
+        local org_name = config.get("wdk_testsign_org_name")
 
 	local run_func = verbose and os.execv or os.runv
 
@@ -53,7 +60,7 @@ rule("wdk.testsign")
             if not os.isfile(cert) or not os.isfile(key) then
                 run_func(openssl.program, {
                     "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256", "-days", "3650",
-                    "-subj", "/CN=xmake WDK test driver/", "-addext", "extendedKeyUsage=codeSigning",
+                    "-subj", string.format("/CN=%s/", org_name), "-addext", "extendedKeyUsage=codeSigning",
                     "-keyout", key, "-out", cert
                 })
             end
