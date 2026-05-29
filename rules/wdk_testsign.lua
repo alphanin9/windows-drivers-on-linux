@@ -16,6 +16,12 @@ option("wdk_sign_key")
     set_description("Path to a PEM private key for wdk.testsign")
 option_end()
 
+option("wdk_verbose_codesign")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Output signing programs stdout during signing")
+option_end()
+
 rule("wdk.testsign")
     after_build(function (target)
         import("core.project.config")
@@ -27,10 +33,15 @@ rule("wdk.testsign")
 
         local osslsigncode = find_tool("osslsigncode")
         assert(osslsigncode, "wdk_testsign=true requires osslsigncode in PATH")
-
-        local openssl = find_tool("openssl")
+	
+	-- Specifying check() seems to be needed on at least Ubuntu 24.04
+        local openssl = find_tool("openssl", { check = function(tool) os.run("%s -h", tool) end })
+	
         local cert = config.get("wdk_sign_cert")
         local key = config.get("wdk_sign_key")
+	local verbose = config.get("wdk_verbose_codesign")
+
+	local run_func = verbose and os.execv or os.runv
 
         if cert == "" or key == "" then
             assert(openssl, "generated test certificates require openssl in PATH")
@@ -40,7 +51,7 @@ rule("wdk.testsign")
             key = path.join(certdir, "test-driver.key")
 
             if not os.isfile(cert) or not os.isfile(key) then
-                os.execv(openssl.program, {
+                run_func(openssl.program, {
                     "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256", "-days", "3650",
                     "-subj", "/CN=xmake WDK test driver/", "-addext", "extendedKeyUsage=codeSigning",
                     "-keyout", key, "-out", cert
@@ -53,8 +64,8 @@ rule("wdk.testsign")
         local unsigned = target:targetfile()
         local signed = path.join(path.directory(unsigned), path.basename(unsigned) .. "-signed.sys")
         os.tryrm(signed)
-        os.execv(osslsigncode.program, {"sign", "-h", "sha256", "-certs", cert, "-key", key, "-in", unsigned, "-out", signed})
+        run_func(osslsigncode.program, {"sign", "-h", "sha256", "-certs", cert, "-key", key, "-in", unsigned, "-out", signed})
         os.mv(signed, unsigned)
-        os.execv(osslsigncode.program, {"verify", "-CAfile", cert, "-in", unsigned})
+        run_func(osslsigncode.program, {"verify", "-CAfile", cert, "-in", unsigned})
     end)
 rule_end()

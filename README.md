@@ -82,6 +82,8 @@ xmake
 
 Private keys are ignored by `.gitignore`.
 
+For verbose OpenSSL/osslsigncode output you can set `--wdk_verbose_codesign=y`.
+
 ## Windows test VM notes
 
 To load a test-signed raw `.sys`, the target Windows VM generally needs test-signing mode enabled:
